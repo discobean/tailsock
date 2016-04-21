@@ -1,0 +1,110 @@
+#!/usr/bin/python
+import tailer, socket, sys, getopt, os
+from bottle.ext.websocket import GeventWebSocketServer, websocket
+from bottle import get, run
+from multiprocessing import Process
+
+### Options
+port = None # specify a port number, default is random open port
+initial_print = 10 # number of lines to load initially tail -n / head -n
+oneshot = False # exit completely if the browser / connection is lost
+
+def usage():
+    print "Usage: %s [-p <port>] [-n <num>] [-o] -f <filename>" % sys.argv[0]
+    print "       -p <port> : specify port number, default random"
+    print "       -n <num>  : number of rows to show initially, default 10"
+    print "       -o        : oneshot, exits once browser is closed, default off"
+    sys.exit(1)
+
+def get_my_ip():
+    return socket.gethostbyname(socket.gethostname())
+
+def get_open_port():
+    return 8080
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("",0))
+    s.listen(1)
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+def tailer_process(filename, ws):
+    for line in tailer.follow(open(filename)):
+        ws.send(line)
+
+@get('/tail', apply=[websocket])
+def echo(ws):
+
+    for line in tailer.tail(open(filename), initial_print):
+        ws.send(line)
+
+    process = Process(target=tailer_process, args=(filename, ws))
+    process.start()
+
+    while True:
+	msg = ws.receive()
+
+	if msg is None:
+	    process.terminate()
+	    if oneshot:
+	        sys.exit(0)
+
+            break
+
+@get('/')
+def index():
+    return """
+<!doctype html>
+<html>
+<head>
+  <title>""" + filename + """</title>
+  <style>p { display: block; unicode-bidi: embed; font-family: monospace; white-space: pre; margin: 0; padding: 0; }</style>
+</head>
+<body>
+<div id="logdata" />
+<script>
+  // convert the protocol of the URI to ws or wss
+  var loc = window.location, ws_uri;
+  ws_uri = "ws://" + loc.host + loc.pathname + "tail";
+  var ws = new WebSocket(ws_uri);
+
+  ws.onmessage = function(evt) {
+    var newMessage = document.createElement('p');
+    newMessage.textContent = evt.data;
+    document.getElementById('logdata').appendChild(newMessage);
+    window.scrollTo(0,document.body.scrollHeight);
+  };
+</script>
+</body>
+</html>
+"""
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:],"p:f:n:oh")
+    for opt, arg in opts:
+        if opt == '-p':
+            port = arg
+        if opt == '-f':
+            filename = arg
+        if opt == '-n':
+            initial_print = int(arg)
+        if opt == '-o':
+            oneshot = True
+        if opt == '-h':
+            usage()
+
+    if not os.path.isfile(filename):
+        print "Invalid file: %s" % filename
+        sys.exit(2)
+
+except:
+    usage()
+
+if port is None:
+    port = get_open_port()
+
+myip = get_my_ip()
+print "http://%s:%s" % (myip, port)
+run(host='0.0.0.0', port=port, server=GeventWebSocketServer, quiet=True)
+
