@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2.7
 import tailer, socket, sys, getopt, os
 from bottle.ext.websocket import GeventWebSocketServer, websocket
 from bottle import get, run
@@ -6,13 +6,13 @@ from multiprocessing import Process
 
 ### Options
 port = None # specify a port number, default is random open port
-initial_print = 10 # number of lines to load initially tail -n / head -n
+initial_print = 50 # number of lines to load initially tail -n / head -n
 oneshot = False # exit completely if the browser / connection is lost
 
 def usage():
     print "Usage: %s [-p <port>] [-n <num>] [-o] -f <filename>" % sys.argv[0]
     print "       -p <port> : specify port number, default random"
-    print "       -n <num>  : number of rows to show initially, default 10"
+    print "       -n <num>  : number of rows to show initially, default 50"
     print "       -o        : oneshot, exits once browser is closed, default off"
     sys.exit(1)
 
@@ -20,8 +20,6 @@ def get_my_ip():
     return socket.gethostbyname(socket.gethostname())
 
 def get_open_port():
-    return 8080
-
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(("",0))
     s.listen(1)
