@@ -1,0 +1,8 @@
+bottle==0.12.10
+bottle-websocket==0.2.9
+gevent==1.1.2
+gevent-websocket==0.9.5
+greenlet==0.4.11
+Jinja2==2.8
+MarkupSafe==0.23
+tailer==0.4.1
