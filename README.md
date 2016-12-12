@@ -15,7 +15,7 @@ Examples:
 $ ./tailsock -f test.log
 http://192.168.178.24:55979
 
-$ ./tailsock -f /logs/*.log
+$ ./tailsock -f '/logs/*.log'
 http://192.168.178.24:55979
 ````
 Then visit the URL shown in your browser and watch the magic happen, tested in Chrome.
