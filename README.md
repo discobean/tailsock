@@ -5,10 +5,9 @@ Usage:
 ````
 $ pip install -r requirements.txt
 $ ./tailsock
-Usage: ./tailsock [-p <port>] [-n <num>] [-o] -f <filename>
-   -p <port> : specify port number, default random
-   -n <num>  : number of rows to show initially, default 50
-   -o        : oneshot, exits once browser is closed, default off
+Usage: ./tailsock [-p <port>] [-n <num>] -f <file/dir/glob>
+       -p <port> : specify port number, default random
+       -n <num>  : number of rows to show initially, default 200
 ````
 
 Examples:
