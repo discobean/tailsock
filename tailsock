@@ -1,19 +1,18 @@
 #!/usr/bin/env python2.7
-import tailer, socket, sys, getopt, os
+import tailer, socket, sys, getopt, os, glob
 from bottle.ext.websocket import GeventWebSocketServer, websocket
-from bottle import get, run
+from bottle import get, run, template
+from jinja2 import Template
 from multiprocessing import Process
 
 ### Options
 port = None # specify a port number, default is random open port
-initial_print = 50 # number of lines to load initially tail -n / head -n
-oneshot = False # exit completely if the browser / connection is lost
+initial_print = 200 # number of lines to load initially tail -n / head -n
 
 def usage():
-    print "Usage: %s [-p <port>] [-n <num>] [-o] -f <filename>" % sys.argv[0]
+    print "Usage: %s [-p <port>] [-n <num>] -f <file/dir/glob>" % sys.argv[0]
     print "       -p <port> : specify port number, default random"
-    print "       -n <num>  : number of rows to show initially, default 50"
-    print "       -o        : oneshot, exits once browser is closed, default off"
+    print "       -n <num>  : number of rows to show initially, default 200"
     sys.exit(1)
 
 def get_my_ip():
@@ -31,32 +30,32 @@ def tailer_process(filename, ws):
     for line in tailer.follow(open(filename)):
         ws.send(line)
 
-@get('/tail', apply=[websocket])
-def echo(ws):
+@get('/get/<filename>/tail', apply=[websocket])
+def echo(ws, filename):
+    dirname = os.path.dirname(directory)
 
-    for line in tailer.tail(open(filename), initial_print):
+    tailfilename = "%s/%s" % (dirname, filename)
+
+    for line in tailer.tail(open(tailfilename), initial_print):
         ws.send(line)
 
-    process = Process(target=tailer_process, args=(filename, ws))
+    process = Process(target=tailer_process, args=(tailfilename, ws))
     process.start()
 
     while True:
-	msg = ws.receive()
+        msg = ws.receive()
 
-	if msg is None:
-	    process.terminate()
-	    if oneshot:
-	        sys.exit(0)
+    if msg is None:
+        process.terminate()
 
-            break
+@get('/get/<filename>')
+def index(filename):
 
-@get('/')
-def index():
-    return """
+    t = Template("""
 <!doctype html>
 <html>
 <head>
-  <title>""" + filename + """</title>
+  <title>{{hostname}}:{{filename}}</title>
   <style>p { display: block; unicode-bidi: embed; font-family: monospace; white-space: pre; margin: 0; padding: 0; }</style>
 </head>
 <body>
@@ -64,7 +63,7 @@ def index():
 <script>
   // convert the protocol of the URI to ws or wss
   var loc = window.location, ws_uri;
-  ws_uri = "ws://" + loc.host + loc.pathname + "tail";
+  ws_uri = "ws://" + loc.host + loc.pathname + "/tail";
   var ws = new WebSocket(ws_uri);
 
   ws.onmessage = function(evt) {
@@ -76,33 +75,60 @@ def index():
 </script>
 </body>
 </html>
-"""
+""")
 
-try:
-    opts, args = getopt.getopt(sys.argv[1:],"p:f:n:oh")
-    for opt, arg in opts:
-        if opt == '-p':
-            port = arg
-        if opt == '-f':
-            filename = arg
-        if opt == '-n':
-            initial_print = int(arg)
-        if opt == '-o':
-            oneshot = True
-        if opt == '-h':
-            usage()
+    return t.render(hostname=socket.gethostname(), filename=filename)
 
-    if not os.path.isfile(filename):
-        print "Invalid file: %s" % filename
-        sys.exit(2)
+@get('/')
+def index():
+    tmpfiles = glob.glob(directory)
+    files = []
+    for file in tmpfiles:
+        files.append(os.path.basename(file))
 
-except:
-    usage()
+    files = sorted(files)
 
-if port is None:
-    port = get_open_port()
+    t = Template("""
+<!doctype html>
+<html>
+<head>
+  <title>{{hostname}}:{{directory}}</title>
+</head>
+<body>
+<h1>{{hostname}}:{{directory}}</h1>
+{% for file in files %}
+<a href="/get/{{file}}">{{file}}</a><br />
+{% endfor %}
+</body>
+</html>
+""")
 
-myip = get_my_ip()
-print "http://%s:%s" % (myip, port)
-run(host='0.0.0.0', port=port, server=GeventWebSocketServer, quiet=True)
+    return t.render(files=files, directory=directory, hostname=socket.gethostname())
+
+if __name__ == '__main__':
+    directory = '.'
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],"p:f:n:h")
+        for opt, arg in opts:
+            if opt == '-p':
+                port = arg
+            if opt == '-f':
+                directory = arg
+            if opt == '-n':
+                initial_print = int(arg)
+            if opt == '-h':
+                usage()
+
+    except:
+        usage()
+
+    if port is None:
+        port = get_open_port()
+
+    if os.path.exists(directory) and os.path.isdir(directory):
+        directory = directory + '/*'
+
+    myip = get_my_ip()
+    print "http://%s:%s" % (myip, port)
+    run(host='0.0.0.0', port=port, server=GeventWebSocketServer, quiet=True)
 

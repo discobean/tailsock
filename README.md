@@ -2,7 +2,6 @@
 A simple one file tail app that lets you tail files in your web browser
 
 Usage:
-
     $ ./tailsock
     Usage: ./tailsock [-p <port>] [-n <num>] [-o] -f <filename>
        -p <port> : specify port number, default random
