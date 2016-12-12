@@ -3,6 +3,7 @@ A simple one file tail app that lets you tail files in your web browser.  It can
 
 Usage:
 ````
+$ pip install -r requirements.txt
 $ ./tailsock
 Usage: ./tailsock [-p <port>] [-n <num>] [-o] -f <filename>
    -p <port> : specify port number, default random
